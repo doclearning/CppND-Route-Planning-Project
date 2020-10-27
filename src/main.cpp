@@ -29,6 +29,8 @@ static std::optional<std::vector<std::byte>> ReadFile(const std::string &path)
 
 int main(int argc, const char **argv)
 {    
+    std::cout << "Custom project built.\n";
+
     std::string osm_data_file = "";
     if( argc > 1 ) {
         for( int i = 1; i < argc; ++i )
@@ -56,11 +58,20 @@ int main(int argc, const char **argv)
     // user input for these values using std::cin. Pass the user input to the
     // RoutePlanner object below in place of 10, 10, 90, 90.
 
+    float start_x, start_y, end_x, end_y = 0;
+
+    std::cout << "Please enter start and end coordinates (as start_x start_y end_x end_y):\n";
+    std::cin >> start_x >> start_y >> end_x >> end_y;
+
+    //Probably do some error checking on that data, and maybe some robustness. Assert the result.
+
+    std::cout << "coordinates: start(" << start_x << ", " << start_y << "), end(" << end_x << ", " << end_y << ")\n";  
+
     // Build Model.
     RouteModel model{osm_data};
 
     // Create RoutePlanner object and perform A* search.
-    RoutePlanner route_planner{model, 10, 10, 90, 90};
+    RoutePlanner route_planner{model, start_x, start_y, end_x, end_y};
     route_planner.AStarSearch();
 
     std::cout << "Distance: " << route_planner.GetDistance() << " meters. \n";
