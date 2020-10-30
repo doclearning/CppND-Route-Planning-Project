@@ -1,7 +1,16 @@
 #include "route_planner.h"
 #include <algorithm>
 
+using std::cout;
+using std::sort;
+
+//JAQ: I think my understanding of this needs to improve. FindClosestNeigbour seems to return a reference
+//to a node, which is a private member variable. I'm then returning a pointer to this variable, from the reference.
+//So I think this pointer is defined on the stack, but as a member variable, it won't be cleaned up in this method
+//or the calling method? So this seems fairly safe, but also could result in a bug if the model is cleaned up?
+//I wonder why m_Nodes isn't defined as a vector of pointers? 
 RoutePlanner::RoutePlanner(RouteModel &model, float start_x, float start_y, float end_x, float end_y): m_Model(model) {
+    
     // Convert inputs to percentage:
     start_x *= 0.01;
     start_y *= 0.01;
@@ -10,7 +19,11 @@ RoutePlanner::RoutePlanner(RouteModel &model, float start_x, float start_y, floa
 
     // TODO 2: Use the m_Model.FindClosestNode method to find the closest nodes to the starting and ending coordinates.
     // Store the nodes you find in the RoutePlanner's start_node and end_node attributes.
+    start_node = &model.FindClosestNode(start_x, start_y);
 
+    //JAQ: Almost missed this. Without it, you get an loop in the datastructure, and then your path traversal fails
+    start_node->visited = true;
+    end_node = &model.FindClosestNode(end_x, end_y);
 }
 
 
@@ -21,6 +34,7 @@ RoutePlanner::RoutePlanner(RouteModel &model, float start_x, float start_y, floa
 
 float RoutePlanner::CalculateHValue(RouteModel::Node const *node) {
 
+    return node->distance(*end_node);
 }
 
 
@@ -33,6 +47,23 @@ float RoutePlanner::CalculateHValue(RouteModel::Node const *node) {
 
 void RoutePlanner::AddNeighbors(RouteModel::Node *current_node) {
 
+     current_node->FindNeighbors();
+
+     for(auto neighbor : current_node->neighbors){
+
+         //This seems already checked for in the FindNeighbor method
+         //if(neighbor->visited)
+         //   continue;
+
+        neighbor->parent = current_node;
+
+        float distanceToParent = neighbor->distance(*current_node);
+
+        neighbor->h_value = CalculateHValue(neighbor);
+        neighbor->g_value = current_node->g_value + distanceToParent;
+        neighbor->visited = true;
+        open_list.push_back(neighbor);
+     }
 }
 
 
@@ -44,6 +75,13 @@ void RoutePlanner::AddNeighbors(RouteModel::Node *current_node) {
 // - Return the pointer.
 
 RouteModel::Node *RoutePlanner::NextNode() {
+    sort(open_list.begin(), open_list.end(), RouteModel::Node::Compare);
+    
+    auto lowestSum = open_list.back();
+
+    open_list.pop_back();
+
+    return lowestSum;
 
 }
 
@@ -63,6 +101,22 @@ std::vector<RouteModel::Node> RoutePlanner::ConstructFinalPath(RouteModel::Node 
 
     // TODO: Implement your solution here.
 
+    //Follow up the chain of parent nodes until found the starting nodes
+    auto evalNode = current_node;
+    path_found.push_back(*evalNode);
+    distance = evalNode->g_value;
+
+    while(evalNode->parent != nullptr){
+        //For each node, accumulate distance and push the node
+        //distance += evalNode->distance(*evalNode->parent); //This is already summed in gValue, so why recompute it?
+        path_found.push_back(*evalNode->parent);
+
+        evalNode = evalNode->parent;
+    }
+
+    //reverse path
+    std::reverse(path_found.begin(), path_found.end());
+
     distance *= m_Model.MetricScale(); // Multiply the distance by the scale of the map to get meters.
     return path_found;
 
@@ -77,8 +131,27 @@ std::vector<RouteModel::Node> RoutePlanner::ConstructFinalPath(RouteModel::Node 
 // - Store the final path in the m_Model.path attribute before the method exits. This path will then be displayed on the map tile.
 
 void RoutePlanner::AStarSearch() {
-    RouteModel::Node *current_node = nullptr;
+
+    
+    //RouteModel::Node *current_node = nullptr;
+    RouteModel::Node *current_node = start_node; //Is this right??
 
     // TODO: Implement your solution here.
+    AddNeighbors(current_node);
+    
+    while(open_list.size() > 0){
 
+        auto nextNode = NextNode();
+
+        //Better to compare the pointer addresses, rather than floats
+        //if(nextNode->x == end_node->x && nextNode->y == end_node->y){
+        if(nextNode == end_node){
+            m_Model.path = ConstructFinalPath(nextNode);
+
+            return;
+        }
+
+        AddNeighbors(nextNode);
+    }
+    return;
 }

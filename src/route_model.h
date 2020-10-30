@@ -19,8 +19,17 @@ class RouteModel : public Model {
         std::vector<Node *> neighbors;
 
         void FindNeighbors();
+        
         float distance(Node other) const {
             return std::sqrt(std::pow((x - other.x), 2) + std::pow((y - other.y), 2));
+        }
+
+        //JAQ: Added the static comparison here.
+        static bool Compare(const RouteModel::Node *nodeA, const RouteModel::Node *nodeB){
+          float f_a = nodeA->g_value + nodeA->h_value;
+          float f_b = nodeB->g_value + nodeB->h_value;
+
+          return f_a > f_b;
         }
 
         Node(){}
